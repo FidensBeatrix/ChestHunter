@@ -1,6 +1,6 @@
 """
-Claw Cryptics
-=============
+Chest Hunter
+============
 
 A small maze / word game made with Streamlit, HTML, CSS and JavaScript.
 
@@ -10,20 +10,18 @@ How the game works:
 - Treasure chests contain scrambled letters.
 - After collecting all chests, the player guesses the hidden answer.
 - Answers can be words, phrases, names, places or brands.
-- Supabase is used to save players, games, wins and solved words.
-- The game also supports mobile controls and a shared scoreboard.
+- No login or online player database is used.
+- The game supports keyboard and mobile controls.
 
 This file is split into #region / #endregion sections so it is easier to
 collapse parts of the code in editors such as VS Code.
 
 Most of the actual game runs in JavaScript inside GAME_HTML.
-Python mainly prepares Streamlit, loads the image and passes the Supabase
-settings into the HTML game.
+Python mainly prepares Streamlit, loads the image and displays the HTML game.
 """
 
 #region IMPORTS
 # Standard Python tools used for JSON, image conversion and file paths.
-import json
 import base64
 from pathlib import Path
 
@@ -48,32 +46,17 @@ def image_to_data_uri(filename: str) -> str:
     return f"data:{mime};base64,{encoded}"
 
 
-CLAW_CRYPTICS_IMAGE = image_to_data_uri("ClawCryptics.jpg")
+CHEST_HUNTER_IMAGE = image_to_data_uri("ClawCryptics.jpg")
 #endregion IMAGE SETUP
 
-#region SUPABASE SETTINGS
-# Supabase stores the shared player scoreboard online.
-# The public/publishable key is read from Streamlit Secrets.
-# Supabase scoreboard config.
-# Use ONLY the public/anon key here — never the service-role key.
-try:
-    SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
-    SUPABASE_ANON_KEY = st.secrets.get(
-        "SUPABASE_ANON_KEY",
-        st.secrets.get("SUPABASE_KEY", "")
-    )
-except Exception:
-    SUPABASE_URL = ""
-    SUPABASE_ANON_KEY = ""
 
-#endregion SUPABASE SETTINGS
 
 #region STREAMLIT PAGE CONFIG
 # ============================================================
 # PAGE CONFIG
 # ============================================================
 st.set_page_config(
-    page_title="Claw Cryptics",
+    page_title="Chest Hunter",
     page_icon="🐾",
     layout="wide",
     initial_sidebar_state="collapsed",
@@ -110,7 +93,7 @@ GAME_HTML = r"""
     max-width: 1190px;
     margin: 0 auto;
     display: grid;
-    grid-template-columns: 270px minmax(0, 1fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 16px;
     align-items: start;
 }
@@ -1080,7 +1063,7 @@ GAME_HTML = r"""
 
 <div id="intro-panel">
 
-    <img id="intro-image" src="__CLAW_IMAGE__" alt="Claw Cryptics">
+    <img id="intro-image" src="__CLAW_IMAGE__" alt="Chest Hunter">
 
     <div id="intro-title">
         🐾 Welcome, Chest Hunter!
@@ -1088,7 +1071,7 @@ GAME_HTML = r"""
 
     <div id="intro-text">
 
-        Welcome to <strong>Claw Cryptics</strong> — a prehistoric word chase where quick feet and a quicker brain are equally useful.
+        Welcome to <strong>Chest Hunter</strong> — a prehistoric word chase where quick feet and a quicker brain are equally useful.
 
         <br>
 
@@ -1120,38 +1103,6 @@ GAME_HTML = r"""
 
 </div>
 
-<div id="player-modal">
-    <div id="player-card">
-        <h3>🐾 Who's playing?</h3>
-        <div class="player-subtitle">
-            Continue as an existing player or create a new one.
-        </div>
-
-        <div class="player-choice-block">
-            <label for="old-player-select">Existing player</label>
-            <select id="old-player-select">
-                <option value="">Loading players...</option>
-            </select>
-            <button class="player-choice-button" id="use-old-player" type="button">
-                PLAY AS SELECTED PLAYER
-            </button>
-        </div>
-
-        <div class="player-choice-block">
-            <label for="new-player-name">New player</label>
-            <input id="new-player-name" type="text" maxlength="24"
-                   autocomplete="off" placeholder="Enter player name">
-            <button class="player-choice-button" id="create-player" type="button">
-                CREATE & PLAY
-            </button>
-        </div>
-
-        <div id="player-picker-message"></div>
-
-        <button id="cancel-player-picker" type="button">Back</button>
-    </div>
-</div>
-
 <div id="help-modal">
     <div id="help-card">
         <h3>🎮 How to play</h3>
@@ -1169,9 +1120,7 @@ GAME_HTML = r"""
         <p>
             Collect <strong>every chest</strong> before the dinosaur catches you.
             Once you have all the characters, solve the hidden answer.
-            It can be in <strong>Slovak or English</strong> and may be a
-            <strong>word</strong>, <strong>phrase</strong>, <strong>name</strong>,
-            <strong>place</strong>, or <strong>brand</strong>.
+            This birthday hunt has one hidden phrase. Collect every chest, then solve it!
         </p>
 
         <p>
@@ -1209,37 +1158,12 @@ GAME_HTML = r"""
 
 <div id="play-layout">
 
-<aside id="player-scoreboard">
-    <div class="player-score-title">🏆 Scoreboard</div>
-    <div id="current-player-line">Choose a player to begin</div>
-
-    <table id="player-score-table">
-        <thead>
-            <tr>
-                <th>Player</th>
-                <th>Games</th>
-                <th>Wins</th>
-                <th>Words</th>
-            </tr>
-        </thead>
-        <tbody id="player-score-body"></tbody>
-    </table>
-
-    <div id="scoreboard-empty" style="display:none;">No players yet.</div>
-    <div id="scoreboard-error" style="display:none;"></div>
-
-    <div id="unique-mode-box">
-        <button id="unique-mode-button" type="button">New words only: ON</button>
-        <div id="unique-mode-note">Skip words this player has already solved.</div>
-    </div>
-</aside>
-
 <div id="game-main">
 
 <div id="ks-header">
 
     <div id="ks-title">
-        🐾 Claw Cryptics 🐾
+        🧰 Chest Hunter 🧰
     </div>
 
     <div id="ks-status">
@@ -1364,307 +1288,7 @@ ROOT.dataset.ready = "1";
 
 /* #endregion JAVASCRIPT SETUP */
 
-/* #region SUPABASE PLAYERS AND SCOREBOARD */
-/* Read and update player statistics stored in Supabase. */
-
-const SUPABASE_URL = __SUPABASE_URL__;
-const SUPABASE_ANON_KEY = __SUPABASE_ANON_KEY__;
-const PLAYER_TABLE = "claw_cryptics_players";
-
-let players = [];
-let currentPlayer = null;
-
-function supabaseReady() {
-    return Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
-}
-
-function supabaseHeaders(extra = {}) {
-    return {
-        "apikey": SUPABASE_ANON_KEY,
-        "Authorization": `Bearer ${SUPABASE_ANON_KEY}`,
-        "Content-Type": "application/json",
-        ...extra
-    };
-}
-
-async function supabaseRequest(path, options = {}) {
-    if (!supabaseReady()) {
-        throw new Error("Supabase is not configured in Streamlit secrets.");
-    }
-
-    const response = await fetch(
-        `${SUPABASE_URL}/rest/v1/${path}`,
-        {
-            ...options,
-            headers: supabaseHeaders(options.headers || {})
-        }
-    );
-
-    if (!response.ok) {
-        const detail = await response.text();
-        throw new Error(detail || `Supabase request failed (${response.status}).`);
-    }
-
-    if (response.status === 204) return null;
-
-    const raw = await response.text();
-    return raw ? JSON.parse(raw) : null;
-}
-
-function safeWords(value) {
-    return Array.isArray(value)
-        ? value.filter(word => WORD_OPTIONS.includes(word))
-        : [];
-}
-
-function currentPlayerWords() {
-    return currentPlayer ? safeWords(currentPlayer.found_words) : [];
-}
-
-async function loadPlayers() {
-    const scoreError = document.getElementById("scoreboard-error");
-
-    try {
-        const data = await supabaseRequest(
-            `${PLAYER_TABLE}?select=id,name,games,wins,found_words&order=wins.desc,games.desc,name.asc`,
-            { method: "GET" }
-        );
-
-        players = Array.isArray(data) ? data : [];
-
-        if (currentPlayer) {
-            const refreshed = players.find(p => p.id === currentPlayer.id);
-            if (refreshed) currentPlayer = refreshed;
-        }
-
-        renderScoreboard();
-        renderPlayerPicker();
-        scoreError.style.display = "none";
-    } catch (err) {
-        players = [];
-        renderScoreboard();
-        renderPlayerPicker();
-        scoreError.textContent = "Scoreboard unavailable: " + err.message;
-        scoreError.style.display = "block";
-    }
-}
-
-// Rebuild the visible scoreboard from the latest player data.
-function renderScoreboard() {
-    const body = document.getElementById("player-score-body");
-    const empty = document.getElementById("scoreboard-empty");
-    const currentLine = document.getElementById("current-player-line");
-
-    body.innerHTML = "";
-
-    currentLine.textContent = currentPlayer
-        ? `Playing as: ${currentPlayer.name}`
-        : "Choose a player to begin";
-
-    if (!players.length) {
-        empty.style.display = "block";
-        return;
-    }
-
-    empty.style.display = "none";
-
-    players.forEach(player => {
-        const tr = document.createElement("tr");
-
-        if (currentPlayer && player.id === currentPlayer.id) {
-            tr.classList.add("active-player");
-        }
-
-        const values = [
-            player.name,
-            player.games || 0,
-            player.wins || 0,
-            `${safeWords(player.found_words).length}/${WORD_OPTIONS.length}`
-        ];
-
-        values.forEach(value => {
-            const td = document.createElement("td");
-            td.textContent = value;
-            tr.appendChild(td);
-        });
-
-        body.appendChild(tr);
-    });
-}
-
-function renderPlayerPicker() {
-    const select = document.getElementById("old-player-select");
-    select.innerHTML = "";
-
-    if (!players.length) {
-        const option = document.createElement("option");
-        option.value = "";
-        option.textContent = "No existing players yet";
-        select.appendChild(option);
-        return;
-    }
-
-    const first = document.createElement("option");
-    first.value = "";
-    first.textContent = "Choose a player...";
-    select.appendChild(first);
-
-    [...players]
-        .sort((a, b) => a.name.localeCompare(b.name))
-        .forEach(player => {
-            const option = document.createElement("option");
-            option.value = player.id;
-            option.textContent = player.name;
-            select.appendChild(option);
-        });
-}
-
-async function openPlayerPicker() {
-    const modal = document.getElementById("player-modal");
-    document.getElementById("player-picker-message").textContent = "";
-    modal.style.display = "flex";
-    await loadPlayers();
-}
-
-function closePlayerPicker() {
-    document.getElementById("player-modal").style.display = "none";
-}
-
-async function chooseExistingPlayer() {
-    const id = document.getElementById("old-player-select").value;
-    const message = document.getElementById("player-picker-message");
-
-    if (!id) {
-        message.textContent = "Choose a player first.";
-        return;
-    }
-
-    const player = players.find(p => String(p.id) === String(id));
-
-    if (!player) {
-        message.textContent = "That player could not be loaded.";
-        return;
-    }
-
-    currentPlayer = player;
-    foundWords = new Set(currentPlayerWords());
-    saveFoundWords();
-    updateWordProgress();
-    renderScoreboard();
-    beginSelectedPlayerGame();
-}
-
-async function createNewPlayer() {
-    const input = document.getElementById("new-player-name");
-    const message = document.getElementById("player-picker-message");
-    const name = input.value.trim().replace(/\s+/g, " ");
-
-    if (!name) {
-        message.textContent = "Enter a player name.";
-        return;
-    }
-
-    if (players.some(p => p.name.toLocaleLowerCase() === name.toLocaleLowerCase())) {
-        message.textContent = "That player already exists — choose them above.";
-        return;
-    }
-
-    message.textContent = "Creating player...";
-
-    try {
-        const created = await supabaseRequest(
-            PLAYER_TABLE,
-            {
-                method: "POST",
-                headers: { "Prefer": "return=representation" },
-                body: JSON.stringify({
-                    name,
-                    games: 0,
-                    wins: 0,
-                    found_words: []
-                })
-            }
-        );
-
-        if (!created || !created.length) {
-            throw new Error("Supabase did not return the new player.");
-        }
-
-        currentPlayer = created[0];
-        foundWords = new Set();
-        saveFoundWords();
-        input.value = "";
-
-        await loadPlayers();
-        updateWordProgress();
-        beginSelectedPlayerGame();
-
-    } catch (err) {
-        message.textContent = "Could not create player: " + err.message;
-    }
-}
-
-function beginSelectedPlayerGame() {
-    closePlayerPicker();
-    introPanel.style.display = "none";
-    gameArea.style.display = "block";
-    resetGame(true);
-    ROOT.focus();
-}
-
-async function patchCurrentPlayer(fields) {
-    if (!currentPlayer) return;
-
-    const data = await supabaseRequest(
-        `${PLAYER_TABLE}?id=eq.${encodeURIComponent(currentPlayer.id)}`,
-        {
-            method: "PATCH",
-            headers: { "Prefer": "return=representation" },
-            body: JSON.stringify(fields)
-        }
-    );
-
-    if (Array.isArray(data) && data[0]) {
-        currentPlayer = data[0];
-    } else {
-        currentPlayer = { ...currentPlayer, ...fields };
-    }
-
-    await loadPlayers();
-}
-
-async function recordGameStarted() {
-    if (!currentPlayer) return;
-
-    try {
-        await patchCurrentPlayer({
-            games: (Number(currentPlayer.games) || 0) + 1
-        });
-    } catch (err) {
-        console.error("Could not record game:", err);
-    }
-}
-
-// Save a win and the newly solved word to Supabase.
-async function recordWin(word) {
-    if (!currentPlayer) return;
-
-    const words = new Set(currentPlayerWords());
-    words.add(word);
-
-    try {
-        await patchCurrentPlayer({
-            wins: (Number(currentPlayer.wins) || 0) + 1,
-            found_words: [...words]
-        });
-
-        foundWords = new Set(words);
-        saveFoundWords();
-        updateWordProgress();
-    } catch (err) {
-        console.error("Could not record win:", err);
-    }
-}
+/* #region GAME SETTINGS */
 
 /*
    Detect touch-first devices directly instead of relying only on CSS viewport
@@ -1682,71 +1306,22 @@ if (HAS_TOUCH_UI) {
 }
 
 const WORD_OPTIONS = [
-    "Pelisky",
-    "Neni vojak jako vojak",
-    "Proletarian",
-    "Knedlik",
-    "Najvyrukavickovanejsi",
-    "Najneobhospodarovavatelnejsi",
-    "You shall not pass",
-    "ABCanalysis",
-    "Hyundai",
-    "Podbiel",
-    "Orava",
-    "Toffifee"
+    "Happy Birthday!"
 ];
 
 const WORD_HINTS = {
-    "Pelisky": "A late-1990s Czech film set around a very tense period in modern history.",
-    "Neni vojak jako vojak": "A memorable line connected with the same Czech film as another answer in this game.",
-    "Proletarian": "A word connected with the working class and old political terminology, a term strongly associated with Marxist theory.",
-    "Knedlik": "A classic Central European side dish — soft, sliced, and very good with sauce.",
-    "Najvyrukavickovanejsi": "A Slovak linguistic monster connected with having more of something usually found on shirts and jackets.",
-    "Najneobhospodarovavatelnejsi": "A famously intimidating Slovak-style word describing something extremely difficult to manage or cultivate.",
-    "You shall not pass": "A famous fantasy line shouted when someone absolutely refuses to let another person through.",
-    "ABCanalysis": "A prioritization method where a small group usually matters disproportionately more than the rest.",
-    "Hyundai": "A company whose name is strongly associated with South Korea and roads.",    
-    "Podbiel": "A northern Slovak village known for a remarkably preserved collection of traditional wooden houses.",
-    "Orava": "A northern Slovak region sharing its name with a river, a reservoir, and one extremely photogenic castle.",
-    "Toffifee": "A confection whose structure hides several different textures inside one small brown cup."
+    "Happy Birthday!": "A classic phrase for someone's special day 🎂"
 };
 
 
-const FOUND_WORDS_STORAGE_KEY = "talkingCupcakeFoundWords";
-const UNIQUE_MODE_STORAGE_KEY = "talkingCupcakeNewWordsOnly";
-
-function loadFoundWords() {
-    try {
-        const raw = localStorage.getItem(FOUND_WORDS_STORAGE_KEY);
-        const saved = raw ? JSON.parse(raw) : [];
-        if (!Array.isArray(saved)) return new Set();
-        return new Set(saved.filter(word => WORD_OPTIONS.includes(word)));
-    } catch (err) {
-        return new Set();
-    }
-}
-
-function loadUniqueMode() {
-    try {
-        const raw = localStorage.getItem(UNIQUE_MODE_STORAGE_KEY);
-        return raw === null ? true : raw === "true";
-    } catch (err) {
-        return true;
-    }
-}
-
-let foundWords = loadFoundWords();
-let newWordsOnly = loadUniqueMode();
-
 let WORD = WORD_OPTIONS[0];
-let PLAYABLE_LETTERS = [];
+let PLAYABLE_LETTERS = [...WORD].filter(ch => ch !== " ");
 let previousWord = null;
-
 
 const CELL = 30;
 const SPEED = 135;
 
-/* #endregion SUPABASE PLAYERS AND SCOREBOARD */
+/* #endregion GAME SETTINGS */
 
 /* #region WORDS AND MAZE */
 /* Word list, hints and maze configuration live in this section. */
@@ -1870,81 +1445,8 @@ function applyRandomMaze() {
    ============================================================ */
 
 
-const uniqueModeButton = document.getElementById("unique-mode-button");
-const uniqueModeNote = document.getElementById("unique-mode-note");
-
-function saveFoundWords() {
-    try {
-        localStorage.setItem(
-            FOUND_WORDS_STORAGE_KEY,
-            JSON.stringify([...foundWords])
-        );
-    } catch (err) {}
-}
-
-function saveUniqueMode() {
-    try {
-        localStorage.setItem(
-            UNIQUE_MODE_STORAGE_KEY,
-            String(newWordsOnly)
-        );
-    } catch (err) {}
-}
-
-
-function updateWordProgress() {
-    uniqueModeButton.textContent =
-        `New words only: ${newWordsOnly ? "ON" : "OFF"}`;
-
-    uniqueModeButton.classList.toggle("off", !newWordsOnly);
-
-    if (!currentPlayer) {
-        uniqueModeNote.textContent = "Choose a player first.";
-    } else if (newWordsOnly) {
-        const solved = foundWords.size;
-        uniqueModeNote.textContent =
-            solved >= WORD_OPTIONS.length
-            ? "All words solved — the full list can repeat."
-            : `Skipping this player's ${solved} solved word${solved === 1 ? "" : "s"}.`;
-    } else {
-        uniqueModeNote.textContent =
-            "Any word can appear, including solved ones.";
-    }
-}
-
-
-function markCurrentWordFound() {
-    const before = foundWords.size;
-    foundWords.add(WORD);
-
-    if (foundWords.size > before) {
-        saveFoundWords();
-    }
-
-    updateWordProgress();
-}
-
-
-// Choose a random answer, avoiding already solved words when that option is ON.
 function chooseRandomWord() {
-    let choices = [...WORD_OPTIONS];
-
-    if (newWordsOnly) {
-        const unseen = WORD_OPTIONS.filter(word => !foundWords.has(word));
-
-        if (unseen.length > 0) {
-            choices = unseen;
-        }
-    }
-
-    if (previousWord !== null && choices.length > 1) {
-        const withoutPrevious = choices.filter(word => word !== previousWord);
-        if (withoutPrevious.length > 0) {
-            choices = withoutPrevious;
-        }
-    }
-
-    WORD = choices[Math.floor(Math.random() * choices.length)];
+    WORD = WORD_OPTIONS[0];
     previousWord = WORD;
     PLAYABLE_LETTERS = [...WORD].filter(ch => ch !== " ");
 }
@@ -2368,7 +1870,6 @@ function resetGame(
 
     if (beginNow) {
 
-        recordGameStarted();
         startOpeningCountdown();
 
     }
@@ -3407,8 +2908,6 @@ function submitGuess() {
         state.awaitingGuess = false;
         state.gameOver = true;
         state.won = true;
-        markCurrentWordFound();
-        recordWin(WORD);
         state.score += 1000;
         state.lastEvent = `🎉 CORRECT! ${WORD}!`;
 
@@ -5304,32 +4803,10 @@ document.addEventListener(
 startGameButton.addEventListener(
     "click",
     () => {
-        openPlayerPicker();
-    }
-);
-
-document.getElementById("use-old-player").addEventListener(
-    "click",
-    chooseExistingPlayer
-);
-
-document.getElementById("create-player").addEventListener(
-    "click",
-    createNewPlayer
-);
-
-document.getElementById("cancel-player-picker").addEventListener(
-    "click",
-    closePlayerPicker
-);
-
-document.getElementById("new-player-name").addEventListener(
-    "keydown",
-    (event) => {
-        if (event.key === "Enter") {
-            event.preventDefault();
-            createNewPlayer();
-        }
+        introPanel.style.display = "none";
+        gameArea.style.display = "block";
+        resetGame(true);
+        ROOT.focus();
     }
 );
 
@@ -5341,14 +4818,6 @@ document
         "click",
         pauseGame
     );
-
-uniqueModeButton.addEventListener("click", () => {
-    newWordsOnly = !newWordsOnly;
-    saveUniqueMode();
-    updateWordProgress();
-});
-
-updateWordProgress();
 
 hintButton.addEventListener("click", () => {
     const isOpen = hintText.style.display === "block";
@@ -5446,7 +4915,6 @@ resetGame(
     false
 );
 
-loadPlayers();
 
 })();
 
@@ -5461,9 +4929,7 @@ loadPlayers();
 # DISPLAY GAME
 # ============================================================
 
-GAME_HTML = GAME_HTML.replace("__CLAW_IMAGE__", CLAW_CRYPTICS_IMAGE)
-GAME_HTML = GAME_HTML.replace("__SUPABASE_URL__", json.dumps(SUPABASE_URL))
-GAME_HTML = GAME_HTML.replace("__SUPABASE_ANON_KEY__", json.dumps(SUPABASE_ANON_KEY))
+GAME_HTML = GAME_HTML.replace("__CLAW_IMAGE__", CHEST_HUNTER_IMAGE)
 
 components.html(
     GAME_HTML,
