@@ -1055,39 +1055,36 @@ GAME_HTML = r"""
 /* #endregion MOBILE CONTROLS */
 
 /* Dynamic desktop fullscreen layout */
-#ks-root.fake-fullscreen {
-    position: fixed;
-    inset: 0;
-    z-index: 2147483646;
+#ks-root:fullscreen {
     width: 100vw;
-    height: 100dvh;
+    height: 100vh;
     box-sizing: border-box;
     background: #000;
     overflow: hidden;
 }
-#ks-root.fake-fullscreen #ks-wrap,
-#ks-root.fake-fullscreen #game-area,
-#ks-root.fake-fullscreen #play-layout,
-#ks-root.fake-fullscreen #game-main {
+#ks-root:fullscreen #ks-wrap,
+#ks-root:fullscreen #game-area,
+#ks-root:fullscreen #play-layout,
+#ks-root:fullscreen #game-main {
     width: 100%;
     height: 100%;
     max-width: none;
     margin: 0;
 }
-#ks-root.fake-fullscreen #game-main {
+#ks-root:fullscreen #game-main {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
     padding: 6px 10px 4px;
 }
-#ks-root.fake-fullscreen #ks-header {
+#ks-root:fullscreen #ks-header {
     flex: 0 0 auto;
     margin: 0 0 5px;
 }
-#ks-root.fake-fullscreen #ks-title { font-size: clamp(20px, 2.1vh, 30px); }
-#ks-root.fake-fullscreen #ks-status { font-size: clamp(12px, 1.45vh, 17px); margin-top: 2px; }
-#ks-root.fake-fullscreen #ks-letters { font-size: clamp(14px, 1.8vh, 21px); margin: 2px 0 3px; }
-#ks-root.fake-fullscreen #game-shell {
+#ks-root:fullscreen #ks-title { font-size: clamp(20px, 2.1vh, 30px); }
+#ks-root:fullscreen #ks-status { font-size: clamp(12px, 1.45vh, 17px); margin-top: 2px; }
+#ks-root:fullscreen #ks-letters { font-size: clamp(14px, 1.8vh, 21px); margin: 2px 0 3px; }
+#ks-root:fullscreen #game-shell {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
@@ -1095,7 +1092,7 @@ GAME_HTML = r"""
     justify-content: center;
     overflow: hidden;
 }
-#ks-root.fake-fullscreen #game {
+#ks-root:fullscreen #game {
     width: auto;
     height: auto;
     max-width: 100%;
@@ -1103,7 +1100,7 @@ GAME_HTML = r"""
     object-fit: contain;
     margin: 0 auto;
 }
-#ks-root.fake-fullscreen #controls {
+#ks-root:fullscreen #controls {
     flex: 0 0 auto;
     width: 100%;
     max-width: none;
@@ -1111,18 +1108,18 @@ GAME_HTML = r"""
     gap: 10px;
     flex-wrap: nowrap;
 }
-#ks-root.fake-fullscreen #controls button {
+#ks-root:fullscreen #controls button {
     flex: 1 1 0;
     min-width: 0;
     padding: 8px 8px;
 }
-#ks-root.fake-fullscreen #help {
+#ks-root:fullscreen #help {
     flex: 0 0 auto;
     margin: 4px 0 0;
     line-height: 1.15;
     font-size: clamp(9px, 1.15vh, 12px);
 }
-#ks-root.fake-fullscreen #guess-panel {
+#ks-root:fullscreen #guess-panel {
     position: fixed;
     left: 50%;
     bottom: 58px;
@@ -1161,10 +1158,10 @@ GAME_HTML = r"""
 }
 
 /* In mobile fullscreen, keep the larger D-pad directly beside the maze. */
-#ks-root.touch-ui.fake-fullscreen #game-shell {
+#ks-root.touch-ui:fullscreen #game-shell {
     padding-right: 170px;
 }
-#ks-root.touch-ui.fake-fullscreen #mobile-controls {
+#ks-root.touch-ui:fullscreen #mobile-controls {
     right: 10px;
 }
 
@@ -1963,6 +1960,11 @@ function resetGame(
 
         countdownValue:
             null,
+
+        // True when Full screen was pressed during the opening countdown.
+        // The game waits here until the player taps START GAME.
+        waitingFullscreenStart:
+            false,
 
         player:
             [...PLAYER_START],
@@ -3730,6 +3732,50 @@ function overlayBox(
 
 function drawPauseOverlay() {
 
+    // Fullscreen was opened during the opening countdown.
+    // Stay frozen here until START GAME is tapped/clicked.
+    if (state.waitingFullscreenStart) {
+        const [cx, cy] = overlayBox(
+            520,
+            250,
+            "#f87171"
+        );
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+
+        ctx.fillStyle = "#bbf7d0";
+        ctx.font = "bold 30px Arial";
+        ctx.fillText("🐾 READY TO HUNT? 🐾", cx, cy - 65);
+
+        ctx.fillStyle = "white";
+        ctx.font = "bold 18px Arial";
+        ctx.fillText("Full screen is ready.", cx, cy - 22);
+        ctx.fillText("Tap START GAME when you're ready!", cx, cy + 10);
+
+        // Draw START GAME button inside the same popup.
+        const bw = 220;
+        const bh = 58;
+        const bx = cx - bw / 2;
+        const by = cy + 42;
+
+        ctx.fillStyle = "#7c3aed";
+        ctx.fillRect(bx, by, bw, bh);
+        ctx.strokeStyle = "#c4b5fd";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(bx, by, bw, bh);
+
+        ctx.fillStyle = "white";
+        ctx.font = "bold 20px Arial";
+        ctx.fillText("START GAME", cx, by + bh / 2);
+
+        // Save the canvas-coordinate hitbox for mouse/touch.
+        state.fullscreenStartButton = { x: bx, y: by, w: bw, h: bh };
+        return;
+    }
+
+    state.fullscreenStartButton = null;
+
     if (
         state.countdownActive &&
         state.countdownValue != null
@@ -4931,12 +4977,37 @@ startGameButton.addEventListener(
     }
 );
 
+// START GAME button drawn inside the fullscreen waiting popup.
+canvas.addEventListener("pointerdown", (event) => {
+    if (!state.waitingFullscreenStart || !state.fullscreenStartButton) {
+        return;
+    }
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (event.clientX - rect.left) * (canvas.width / rect.width);
+    const y = (event.clientY - rect.top) * (canvas.height / rect.height);
+    const b = state.fullscreenStartButton;
+
+    if (
+        x >= b.x && x <= b.x + b.w &&
+        y >= b.y && y <= b.y + b.h
+    ) {
+        event.preventDefault();
+
+        state.waitingFullscreenStart = false;
+        state.fullscreenStartButton = null;
+        state.lastEvent = "Get ready...";
+
+        // NOW restart the opening countdown from 3.
+        startOpeningCountdown();
+        ROOT.focus();
+    }
+});
+
 const fullscreenButton = document.getElementById("fullscreen");
-let fakeFullscreen = false;
-let savedFrameStyle = null;
 
 function fitFullscreenGame() {
-    if (!fakeFullscreen) {
+    if (document.fullscreenElement !== ROOT) {
         canvas.style.width = "";
         canvas.style.height = "";
         return;
@@ -4951,7 +5022,7 @@ function fitFullscreenGame() {
     const verticalPadding = parseFloat(mainStyle.paddingTop) + parseFloat(mainStyle.paddingBottom);
     const reserved = header.offsetHeight + controls.offsetHeight + help.offsetHeight + verticalPadding + 18;
     const availableHeight = Math.max(120, window.innerHeight - reserved);
-    const touchReserve = HAS_TOUCH_UI ? 175 : 0;
+    const touchReserve = HAS_TOUCH_UI ? 130 : 0;
     const availableWidth = Math.max(120, window.innerWidth - 20 - touchReserve);
 
     const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
@@ -4959,69 +5030,71 @@ function fitFullscreenGame() {
     canvas.style.height = `${Math.floor(canvas.height * scale)}px`;
 }
 
-function setFakeFullscreen(on) {
-    fakeFullscreen = on;
-    ROOT.classList.toggle("fake-fullscreen", on);
-    fullscreenButton.textContent = on ? "⛶ Exit full screen" : "⛶ Full screen";
+window.addEventListener("resize", fitFullscreenGame);
 
-    /*
-       MOBILE "FAKE FULLSCREEN"
-       We deliberately DO NOT call requestFullscreen(). Android/Chrome therefore
-       does not show its "To exit full screen..." security banner.
-
-       Streamlit puts this game inside an iframe, so expand that iframe itself to
-       the visible browser viewport. Browser address/navigation bars may remain.
-    */
+fullscreenButton.addEventListener("click", async () => {
     try {
-        const frame = window.frameElement;
-        if (frame) {
-            if (on) {
-                savedFrameStyle = frame.getAttribute("style") || "";
-                frame.style.position = "fixed";
-                frame.style.inset = "0";
-                frame.style.width = "100vw";
-                frame.style.height = "100dvh";
-                frame.style.maxWidth = "none";
-                frame.style.maxHeight = "none";
-                frame.style.margin = "0";
-                frame.style.padding = "0";
-                frame.style.border = "0";
-                frame.style.zIndex = "2147483647";
-                frame.style.background = "#000";
-            } else {
-                frame.setAttribute("style", savedFrameStyle || "");
+        // NOTE: the short "this app is fullscreen / how to exit" banner is
+        // browser security UI. Websites cannot hide or style it. It disappears
+        // automatically; keeping requestFullscreen() gives true fullscreen.
+        if (!document.fullscreenElement) {
+            // If Full screen is pressed during the opening countdown:
+            // STOP the countdown and wait for the player to press START GAME
+            // inside the same center popup. Only then restart 3 → 2 → 1 → 0.
+            const waitForFullscreenStart =
+                state.countdownActive &&
+                !state.gameOver &&
+                !state.awaitingGuess;
+
+            if (waitForFullscreenStart) {
+                if (openingCountdownTimer) {
+                    clearInterval(openingCountdownTimer);
+                    openingCountdownTimer = null;
+                }
+                if (openingCountdownFinish) {
+                    clearTimeout(openingCountdownFinish);
+                    openingCountdownFinish = null;
+                }
+                if (timer) {
+                    clearInterval(timer);
+                    timer = null;
+                }
+
+                state.paused = true;
+                state.countdownActive = false;
+                state.countdownValue = null;
+                state.waitingFullscreenStart = true;
+                state.playerDir = [0, 0];
+                state.nextDir = [0, 0];
+                state.lastEvent = "Ready when you are!";
+                render();
             }
+
+            await ROOT.requestFullscreen();
+            fullscreenButton.textContent = "⛶ Exit full screen";
+
+            requestAnimationFrame(() => {
+                fitFullscreenGame();
+                render();
+            });
+        } else {
+            await document.exitFullscreen();
         }
     } catch (err) {
-        console.warn("Could not resize Streamlit iframe:", err);
+        console.error("Fullscreen could not be opened:", err);
     }
+    ROOT.focus();
+});
 
-    document.documentElement.style.overflow = on ? "hidden" : "";
-    document.body.style.overflow = on ? "hidden" : "";
+document.addEventListener("fullscreenchange", () => {
+    fullscreenButton.textContent = document.fullscreenElement
+        ? "⛶ Exit full screen"
+        : "⛶ Full screen";
 
     requestAnimationFrame(() => {
         fitFullscreenGame();
         requestAnimationFrame(fitFullscreenGame);
     });
-
-    ROOT.focus();
-}
-
-window.addEventListener("resize", fitFullscreenGame);
-window.addEventListener("orientationchange", () => {
-    setTimeout(fitFullscreenGame, 150);
-});
-
-fullscreenButton.addEventListener("click", () => {
-    setFakeFullscreen(!fakeFullscreen);
-});
-
-/* Escape still exits our fake fullscreen on desktop keyboards. */
-document.addEventListener("keydown", (event) => {
-    if (event.key === "Escape" && fakeFullscreen) {
-        event.preventDefault();
-        setFakeFullscreen(false);
-    }
 });
 
 document
