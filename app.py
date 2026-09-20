@@ -1053,6 +1053,82 @@ GAME_HTML = r"""
 }
 
 /* #endregion MOBILE CONTROLS */
+
+/* Dynamic desktop fullscreen layout */
+#ks-root:fullscreen {
+    width: 100vw;
+    height: 100vh;
+    box-sizing: border-box;
+    background: #000;
+    overflow: hidden;
+}
+#ks-root:fullscreen #ks-wrap,
+#ks-root:fullscreen #game-area,
+#ks-root:fullscreen #play-layout,
+#ks-root:fullscreen #game-main {
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    margin: 0;
+}
+#ks-root:fullscreen #game-main {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: 6px 10px 4px;
+}
+#ks-root:fullscreen #ks-header {
+    flex: 0 0 auto;
+    margin: 0 0 5px;
+}
+#ks-root:fullscreen #ks-title { font-size: clamp(20px, 2.1vh, 30px); }
+#ks-root:fullscreen #ks-status { font-size: clamp(12px, 1.45vh, 17px); margin-top: 2px; }
+#ks-root:fullscreen #ks-letters { font-size: clamp(14px, 1.8vh, 21px); margin: 2px 0 3px; }
+#ks-root:fullscreen #game-shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+#ks-root:fullscreen #game {
+    width: auto;
+    height: auto;
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    margin: 0 auto;
+}
+#ks-root:fullscreen #controls {
+    flex: 0 0 auto;
+    width: 100%;
+    max-width: none;
+    margin: 6px auto 0;
+    gap: 10px;
+    flex-wrap: nowrap;
+}
+#ks-root:fullscreen #controls button {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 8px 8px;
+}
+#ks-root:fullscreen #help {
+    flex: 0 0 auto;
+    margin: 4px 0 0;
+    line-height: 1.15;
+    font-size: clamp(9px, 1.15vh, 12px);
+}
+#ks-root:fullscreen #guess-panel {
+    position: fixed;
+    left: 50%;
+    bottom: 58px;
+    transform: translateX(-50%);
+    z-index: 10020;
+    width: min(620px, 92vw);
+    margin: 0;
+}
+
 </style>
 
 <div id="ks-wrap">
@@ -4733,6 +4809,31 @@ startGameButton.addEventListener(
 
 const fullscreenButton = document.getElementById("fullscreen");
 
+function fitFullscreenGame() {
+    if (document.fullscreenElement !== ROOT) {
+        canvas.style.width = "";
+        canvas.style.height = "";
+        return;
+    }
+
+    const header = document.getElementById("ks-header");
+    const controls = document.getElementById("controls");
+    const help = document.getElementById("help");
+    const gameMain = document.getElementById("game-main");
+
+    const mainStyle = getComputedStyle(gameMain);
+    const verticalPadding = parseFloat(mainStyle.paddingTop) + parseFloat(mainStyle.paddingBottom);
+    const reserved = header.offsetHeight + controls.offsetHeight + help.offsetHeight + verticalPadding + 18;
+    const availableHeight = Math.max(120, window.innerHeight - reserved);
+    const availableWidth = Math.max(120, window.innerWidth - 20);
+
+    const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
+    canvas.style.width = `${Math.floor(canvas.width * scale)}px`;
+    canvas.style.height = `${Math.floor(canvas.height * scale)}px`;
+}
+
+window.addEventListener("resize", fitFullscreenGame);
+
 fullscreenButton.addEventListener("click", async () => {
     try {
         if (!document.fullscreenElement) {
@@ -4751,6 +4852,11 @@ document.addEventListener("fullscreenchange", () => {
     fullscreenButton.textContent = document.fullscreenElement
         ? "⛶ Exit full screen"
         : "⛶ Full screen";
+
+    requestAnimationFrame(() => {
+        fitFullscreenGame();
+        requestAnimationFrame(fitFullscreenGame);
+    });
 });
 
 document
