@@ -2715,6 +2715,14 @@ function startOpeningCountdown() {
     state.paused = true;
     state.countdownActive = true;
     state.countdownValue = 3;
+
+    // PRIME AUTO-MOVEMENT BEFORE THE COUNTDOWN.
+    // This is important on mobile: when 0 is reached the dog already has a
+    // valid direction and does not depend on keyboard focus or a touch event.
+    const openingStartDir = chooseStartingDirection();
+    state.nextDir = [...openingStartDir];
+    state.playerDir = [...openingStartDir];
+
     state.lastEvent = "Get ready...";
     render();
 
@@ -2735,11 +2743,13 @@ function startOpeningCountdown() {
             state.paused = false;
             state.lastEvent = "GO! 🐾";
 
-            // Start the dog immediately when 0 appears, even if the player
-            // has not pressed a direction yet. The player can override it at once.
-            const startDir = chooseStartingDirection();
-            state.nextDir = [...startDir];
-            state.playerDir = [...startDir];
+            // MOVE ON THE EXACT 0 TICK. The direction was primed before
+            // countdown began, so this also works reliably on touch devices.
+            if (state.playerDir[0] === 0 && state.playerDir[1] === 0) {
+                const startDir = chooseStartingDirection();
+                state.nextDir = [...startDir];
+                state.playerDir = [...startDir];
+            }
             movePlayer();
             if (!state.gameOver && !state.awaitingGuess) {
                 moveDino();
@@ -2850,8 +2860,19 @@ function startCountdown() {
                         false;
 
                     state.lastEvent =
-                        "GO! 🧁";
+                        "GO! 🐾";
 
+                    // On mobile, resume with an automatic direction too.
+                    // If pause cleared movement, pick a valid corridor and move now.
+                    if (state.playerDir[0] === 0 && state.playerDir[1] === 0) {
+                        const resumeDir = chooseStartingDirection();
+                        state.nextDir = [...resumeDir];
+                        state.playerDir = [...resumeDir];
+                    }
+                    movePlayer();
+                    if (!state.gameOver && !state.awaitingGuess) {
+                        moveDino();
+                    }
                     render();
 
                     ROOT.focus();
@@ -4937,6 +4958,9 @@ window.addEventListener("resize", fitFullscreenGame);
 
 fullscreenButton.addEventListener("click", async () => {
     try {
+        // NOTE: the short "this app is fullscreen / how to exit" banner is
+        // browser security UI. Websites cannot hide or style it. It disappears
+        // automatically; keeping requestFullscreen() gives true fullscreen.
         if (!document.fullscreenElement) {
             await ROOT.requestFullscreen();
             fullscreenButton.textContent = "⛶ Exit full screen";
