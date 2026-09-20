@@ -1055,36 +1055,39 @@ GAME_HTML = r"""
 /* #endregion MOBILE CONTROLS */
 
 /* Dynamic desktop fullscreen layout */
-#ks-root:fullscreen {
+#ks-root.fake-fullscreen {
+    position: fixed;
+    inset: 0;
+    z-index: 2147483646;
     width: 100vw;
-    height: 100vh;
+    height: 100dvh;
     box-sizing: border-box;
     background: #000;
     overflow: hidden;
 }
-#ks-root:fullscreen #ks-wrap,
-#ks-root:fullscreen #game-area,
-#ks-root:fullscreen #play-layout,
-#ks-root:fullscreen #game-main {
+#ks-root.fake-fullscreen #ks-wrap,
+#ks-root.fake-fullscreen #game-area,
+#ks-root.fake-fullscreen #play-layout,
+#ks-root.fake-fullscreen #game-main {
     width: 100%;
     height: 100%;
     max-width: none;
     margin: 0;
 }
-#ks-root:fullscreen #game-main {
+#ks-root.fake-fullscreen #game-main {
     display: flex;
     flex-direction: column;
     box-sizing: border-box;
     padding: 6px 10px 4px;
 }
-#ks-root:fullscreen #ks-header {
+#ks-root.fake-fullscreen #ks-header {
     flex: 0 0 auto;
     margin: 0 0 5px;
 }
-#ks-root:fullscreen #ks-title { font-size: clamp(20px, 2.1vh, 30px); }
-#ks-root:fullscreen #ks-status { font-size: clamp(12px, 1.45vh, 17px); margin-top: 2px; }
-#ks-root:fullscreen #ks-letters { font-size: clamp(14px, 1.8vh, 21px); margin: 2px 0 3px; }
-#ks-root:fullscreen #game-shell {
+#ks-root.fake-fullscreen #ks-title { font-size: clamp(20px, 2.1vh, 30px); }
+#ks-root.fake-fullscreen #ks-status { font-size: clamp(12px, 1.45vh, 17px); margin-top: 2px; }
+#ks-root.fake-fullscreen #ks-letters { font-size: clamp(14px, 1.8vh, 21px); margin: 2px 0 3px; }
+#ks-root.fake-fullscreen #game-shell {
     flex: 1 1 auto;
     min-height: 0;
     display: flex;
@@ -1092,7 +1095,7 @@ GAME_HTML = r"""
     justify-content: center;
     overflow: hidden;
 }
-#ks-root:fullscreen #game {
+#ks-root.fake-fullscreen #game {
     width: auto;
     height: auto;
     max-width: 100%;
@@ -1100,7 +1103,7 @@ GAME_HTML = r"""
     object-fit: contain;
     margin: 0 auto;
 }
-#ks-root:fullscreen #controls {
+#ks-root.fake-fullscreen #controls {
     flex: 0 0 auto;
     width: 100%;
     max-width: none;
@@ -1108,18 +1111,18 @@ GAME_HTML = r"""
     gap: 10px;
     flex-wrap: nowrap;
 }
-#ks-root:fullscreen #controls button {
+#ks-root.fake-fullscreen #controls button {
     flex: 1 1 0;
     min-width: 0;
     padding: 8px 8px;
 }
-#ks-root:fullscreen #help {
+#ks-root.fake-fullscreen #help {
     flex: 0 0 auto;
     margin: 4px 0 0;
     line-height: 1.15;
     font-size: clamp(9px, 1.15vh, 12px);
 }
-#ks-root:fullscreen #guess-panel {
+#ks-root.fake-fullscreen #guess-panel {
     position: fixed;
     left: 50%;
     bottom: 58px;
@@ -1158,10 +1161,10 @@ GAME_HTML = r"""
 }
 
 /* In mobile fullscreen, keep the larger D-pad directly beside the maze. */
-#ks-root.touch-ui:fullscreen #game-shell {
+#ks-root.touch-ui.fake-fullscreen #game-shell {
     padding-right: 170px;
 }
-#ks-root.touch-ui:fullscreen #mobile-controls {
+#ks-root.touch-ui.fake-fullscreen #mobile-controls {
     right: 10px;
 }
 
@@ -4929,9 +4932,11 @@ startGameButton.addEventListener(
 );
 
 const fullscreenButton = document.getElementById("fullscreen");
+let fakeFullscreen = false;
+let savedFrameStyle = null;
 
 function fitFullscreenGame() {
-    if (document.fullscreenElement !== ROOT) {
+    if (!fakeFullscreen) {
         canvas.style.width = "";
         canvas.style.height = "";
         return;
@@ -4946,7 +4951,7 @@ function fitFullscreenGame() {
     const verticalPadding = parseFloat(mainStyle.paddingTop) + parseFloat(mainStyle.paddingBottom);
     const reserved = header.offsetHeight + controls.offsetHeight + help.offsetHeight + verticalPadding + 18;
     const availableHeight = Math.max(120, window.innerHeight - reserved);
-    const touchReserve = HAS_TOUCH_UI ? 130 : 0;
+    const touchReserve = HAS_TOUCH_UI ? 175 : 0;
     const availableWidth = Math.max(120, window.innerWidth - 20 - touchReserve);
 
     const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
@@ -4954,34 +4959,69 @@ function fitFullscreenGame() {
     canvas.style.height = `${Math.floor(canvas.height * scale)}px`;
 }
 
-window.addEventListener("resize", fitFullscreenGame);
+function setFakeFullscreen(on) {
+    fakeFullscreen = on;
+    ROOT.classList.toggle("fake-fullscreen", on);
+    fullscreenButton.textContent = on ? "⛶ Exit full screen" : "⛶ Full screen";
 
-fullscreenButton.addEventListener("click", async () => {
+    /*
+       MOBILE "FAKE FULLSCREEN"
+       We deliberately DO NOT call requestFullscreen(). Android/Chrome therefore
+       does not show its "To exit full screen..." security banner.
+
+       Streamlit puts this game inside an iframe, so expand that iframe itself to
+       the visible browser viewport. Browser address/navigation bars may remain.
+    */
     try {
-        // NOTE: the short "this app is fullscreen / how to exit" banner is
-        // browser security UI. Websites cannot hide or style it. It disappears
-        // automatically; keeping requestFullscreen() gives true fullscreen.
-        if (!document.fullscreenElement) {
-            await ROOT.requestFullscreen();
-            fullscreenButton.textContent = "⛶ Exit full screen";
-        } else {
-            await document.exitFullscreen();
+        const frame = window.frameElement;
+        if (frame) {
+            if (on) {
+                savedFrameStyle = frame.getAttribute("style") || "";
+                frame.style.position = "fixed";
+                frame.style.inset = "0";
+                frame.style.width = "100vw";
+                frame.style.height = "100dvh";
+                frame.style.maxWidth = "none";
+                frame.style.maxHeight = "none";
+                frame.style.margin = "0";
+                frame.style.padding = "0";
+                frame.style.border = "0";
+                frame.style.zIndex = "2147483647";
+                frame.style.background = "#000";
+            } else {
+                frame.setAttribute("style", savedFrameStyle || "");
+            }
         }
     } catch (err) {
-        console.error("Fullscreen could not be opened:", err);
+        console.warn("Could not resize Streamlit iframe:", err);
     }
-    ROOT.focus();
-});
 
-document.addEventListener("fullscreenchange", () => {
-    fullscreenButton.textContent = document.fullscreenElement
-        ? "⛶ Exit full screen"
-        : "⛶ Full screen";
+    document.documentElement.style.overflow = on ? "hidden" : "";
+    document.body.style.overflow = on ? "hidden" : "";
 
     requestAnimationFrame(() => {
         fitFullscreenGame();
         requestAnimationFrame(fitFullscreenGame);
     });
+
+    ROOT.focus();
+}
+
+window.addEventListener("resize", fitFullscreenGame);
+window.addEventListener("orientationchange", () => {
+    setTimeout(fitFullscreenGame, 150);
+});
+
+fullscreenButton.addEventListener("click", () => {
+    setFakeFullscreen(!fakeFullscreen);
+});
+
+/* Escape still exits our fake fullscreen on desktop keyboards. */
+document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && fakeFullscreen) {
+        event.preventDefault();
+        setFakeFullscreen(false);
+    }
 });
 
 document
