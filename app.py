@@ -1195,6 +1195,10 @@ GAME_HTML = r"""
         Help
     </button>
 
+    <button id="fullscreen" title="Full screen">
+        ⛶ Full screen
+    </button>
+
 </div>
 
 <div id="help">
@@ -2536,133 +2540,50 @@ function checkCollision() {
 function startOpeningCountdown() {
 
     if (timer) {
-
-        clearInterval(
-            timer
-        );
-
-        timer =
-            null;
-
+        clearInterval(timer);
+        timer = null;
     }
 
     if (openingCountdownTimer) {
-
-        clearInterval(
-            openingCountdownTimer
-        );
-
+        clearInterval(openingCountdownTimer);
+        openingCountdownTimer = null;
     }
 
     if (openingCountdownFinish) {
-
-        clearTimeout(
-            openingCountdownFinish
-        );
-
+        clearTimeout(openingCountdownFinish);
+        openingCountdownFinish = null;
     }
 
-    state.paused =
-        true;
-
-    state.countdownActive =
-        true;
-
-    state.countdownValue =
-        3;
-
-    state.lastEvent =
-        "Get ready...";
-
+    state.paused = true;
+    state.countdownActive = true;
+    state.countdownValue = 3;
+    state.lastEvent = "Get ready...";
     render();
 
-    openingCountdownTimer =
-        setInterval(
-            () => {
+    // 3 → 2 → 1 → 0. The instant 0 appears, the game starts moving.
+    openingCountdownTimer = setInterval(() => {
+        state.countdownValue -= 1;
 
-                if (
-                    state.countdownValue > 1
-                ) {
+        if (state.countdownValue <= 0) {
+            clearInterval(openingCountdownTimer);
+            openingCountdownTimer = null;
 
-                    state.countdownValue -=
-                        1;
+            // Briefly render 0, then immediately release the game loop.
+            state.countdownValue = 0;
+            render();
 
-                    render();
+            state.countdownActive = false;
+            state.countdownValue = null;
+            state.paused = false;
+            state.lastEvent = "GO! 🐾";
 
-                    return;
+            timer = setInterval(gameLoop, SPEED);
+            ROOT.focus();
+            return;
+        }
 
-                }
-
-                if (
-                    state.countdownValue === 1
-                ) {
-
-                    state.countdownValue =
-                        "GO!";
-
-                    state.lastEvent =
-                        "GO! 🧁";
-
-                    render();
-
-                    return;
-
-                }
-
-                clearInterval(
-                    openingCountdownTimer
-                );
-
-                openingCountdownTimer =
-                    null;
-
-            },
-            850
-        );
-
-    openingCountdownFinish =
-        setTimeout(
-            () => {
-
-                if (
-                    openingCountdownTimer
-                ) {
-
-                    clearInterval(
-                        openingCountdownTimer
-                    );
-
-                    openingCountdownTimer =
-                        null;
-
-                }
-
-                state.countdownActive =
-                    false;
-
-                state.countdownValue =
-                    null;
-
-                state.paused =
-                    false;
-
-                state.lastEvent =
-                    "Collect all treasure chests!";
-
-                render();
-
-                timer =
-                    setInterval(
-                        gameLoop,
-                        SPEED
-                    );
-
-                ROOT.focus();
-
-            },
-            3400
-        );
-
+        render();
+    }, 1000);
 }
 
 /* ============================================================
@@ -4809,6 +4730,28 @@ startGameButton.addEventListener(
         ROOT.focus();
     }
 );
+
+const fullscreenButton = document.getElementById("fullscreen");
+
+fullscreenButton.addEventListener("click", async () => {
+    try {
+        if (!document.fullscreenElement) {
+            await ROOT.requestFullscreen();
+            fullscreenButton.textContent = "⛶ Exit full screen";
+        } else {
+            await document.exitFullscreen();
+        }
+    } catch (err) {
+        console.error("Fullscreen could not be opened:", err);
+    }
+    ROOT.focus();
+});
+
+document.addEventListener("fullscreenchange", () => {
+    fullscreenButton.textContent = document.fullscreenElement
+        ? "⛶ Exit full screen"
+        : "⛶ Full screen";
+});
 
 document
     .getElementById(
