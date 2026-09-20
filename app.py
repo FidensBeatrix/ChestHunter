@@ -1131,54 +1131,57 @@ GAME_HTML = r"""
 
 /* Touch devices: keep the D-pad on the RIGHT side of the maze. */
 #ks-root.touch-ui #game-shell {
-    padding-right: 118px;
+    padding-right: 170px;
     box-sizing: border-box;
 }
 #ks-root.touch-ui #mobile-controls {
     display: block !important;
     position: fixed;
-    right: 10px;
+    right: 14px;
     top: 50%;
     transform: translateY(-50%);
-    width: 108px;
+    width: 156px;
     margin: 0;
     z-index: 10010;
 }
 #ks-root.touch-ui .mobile-pad {
-    grid-template-columns: 34px 34px 34px;
-    grid-template-rows: 34px 34px 34px;
+    grid-template-columns: 50px 50px 50px;
+    grid-template-rows: 50px 50px 50px;
     gap: 3px;
 }
 #ks-root.touch-ui .mobile-move {
-    min-width: 34px;
-    min-height: 34px;
+    min-width: 50px;
+    min-height: 50px;
     padding: 0;
-    border-radius: 8px;
-    font-size: 18px;
+    border-radius: 11px;
+    font-size: 27px;
 }
 
-/* In mobile fullscreen, reserve a little room for the right-side D-pad. */
+/* In mobile fullscreen, keep the larger D-pad directly beside the maze. */
 #ks-root.touch-ui:fullscreen #game-shell {
-    padding-right: 122px;
+    padding-right: 170px;
+}
+#ks-root.touch-ui:fullscreen #mobile-controls {
+    right: 10px;
 }
 
 @media (orientation: portrait) and (max-width: 700px) {
     #ks-root.touch-ui #mobile-controls {
-        right: 6px;
-        width: 96px;
+        right: 8px;
+        width: 132px;
     }
     #ks-root.touch-ui .mobile-pad {
-        grid-template-columns: 30px 30px 30px;
-        grid-template-rows: 30px 30px 30px;
-        gap: 2px;
+        grid-template-columns: 42px 42px 42px;
+        grid-template-rows: 42px 42px 42px;
+        gap: 3px;
     }
     #ks-root.touch-ui .mobile-move {
-        min-width: 30px;
-        min-height: 30px;
-        font-size: 15px;
+        min-width: 42px;
+        min-height: 42px;
+        font-size: 23px;
     }
     #ks-root.touch-ui #game-shell {
-        padding-right: 102px;
+        padding-right: 142px;
     }
 }
 
