@@ -4807,6 +4807,49 @@ Object.entries(touchDirections).forEach(([id, direction]) => {
     button.addEventListener("contextmenu", event => event.preventDefault());
 });
 
+// Handle the canvas-drawn NEW GAME / START NEW GAME buttons on mobile too.
+// Mobile browsers may suppress the later "click" because touchstart is used
+// for swipe controls, so restart directly from touch/pointer coordinates.
+let lastEndRestartAt = 0;
+
+function tryEndScreenRestart(clientX, clientY, event = null) {
+    if (!state.gameOver) return false;
+
+    const rect = canvas.getBoundingClientRect();
+    const x = (clientX - rect.left) * (canvas.width / rect.width);
+    const y = (clientY - rect.top) * (canvas.height / rect.height);
+
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+
+    const hit =
+        (state.won &&
+            x >= cx - 100 && x <= cx + 100 &&
+            y >= cy + 54 && y <= cy + 96) ||
+        (!state.won &&
+            x >= cx - 150 && x <= cx + 150 &&
+            y >= cy + 48 && y <= cy + 106);
+
+    if (!hit) return false;
+
+    // Prevent touchstart + pointerdown + click from starting several rounds.
+    if (Date.now() - lastEndRestartAt < 700) return true;
+    lastEndRestartAt = Date.now();
+
+    if (event && event.cancelable) event.preventDefault();
+
+    resetGame(true);
+    ROOT.focus();
+    return true;
+}
+
+canvas.addEventListener(
+    "pointerdown",
+    (event) => {
+        tryEndScreenRestart(event.clientX, event.clientY, event);
+    }
+);
+
 /* Swipe directly on the canvas. Direction is applied while moving,
    not only after lifting the finger, so it feels responsive on phones. */
 let swipeStartX = null;
@@ -4835,8 +4878,20 @@ canvas.addEventListener(
     "touchstart",
     (event) => {
         if (!event.touches || event.touches.length !== 1) return;
-        swipeStartX = event.touches[0].clientX;
-        swipeStartY = event.touches[0].clientY;
+
+        const touch = event.touches[0];
+
+        // On the win/death popup, tapping NEW GAME must work immediately
+        // instead of being swallowed by the canvas swipe handler.
+        if (tryEndScreenRestart(touch.clientX, touch.clientY, event)) {
+            swipeStartX = null;
+            swipeStartY = null;
+            swipeHandled = false;
+            return;
+        }
+
+        swipeStartX = touch.clientX;
+        swipeStartY = touch.clientY;
         swipeHandled = false;
         if (event.cancelable) event.preventDefault();
     },
