@@ -1129,6 +1129,59 @@ GAME_HTML = r"""
     margin: 0;
 }
 
+/* Touch devices: keep the D-pad on the RIGHT side of the maze. */
+#ks-root.touch-ui #game-shell {
+    padding-right: 118px;
+    box-sizing: border-box;
+}
+#ks-root.touch-ui #mobile-controls {
+    display: block !important;
+    position: fixed;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 108px;
+    margin: 0;
+    z-index: 10010;
+}
+#ks-root.touch-ui .mobile-pad {
+    grid-template-columns: 34px 34px 34px;
+    grid-template-rows: 34px 34px 34px;
+    gap: 3px;
+}
+#ks-root.touch-ui .mobile-move {
+    min-width: 34px;
+    min-height: 34px;
+    padding: 0;
+    border-radius: 8px;
+    font-size: 18px;
+}
+
+/* In mobile fullscreen, reserve a little room for the right-side D-pad. */
+#ks-root.touch-ui:fullscreen #game-shell {
+    padding-right: 122px;
+}
+
+@media (orientation: portrait) and (max-width: 700px) {
+    #ks-root.touch-ui #mobile-controls {
+        right: 6px;
+        width: 96px;
+    }
+    #ks-root.touch-ui .mobile-pad {
+        grid-template-columns: 30px 30px 30px;
+        grid-template-rows: 30px 30px 30px;
+        gap: 2px;
+    }
+    #ks-root.touch-ui .mobile-move {
+        min-width: 30px;
+        min-height: 30px;
+        font-size: 15px;
+    }
+    #ks-root.touch-ui #game-shell {
+        padding-right: 102px;
+    }
+}
+
 </style>
 
 <div id="ks-wrap">
@@ -1255,6 +1308,15 @@ GAME_HTML = r"""
     <canvas id="game">
     </canvas>
 
+</div>
+
+<div id="mobile-controls" aria-label="Touch movement controls">
+    <div class="mobile-pad">
+        <button class="mobile-move" id="move-up" type="button" aria-label="Move up">▲</button>
+        <button class="mobile-move" id="move-left" type="button" aria-label="Move left">◀</button>
+        <button class="mobile-move" id="move-down" type="button" aria-label="Move down">▼</button>
+        <button class="mobile-move" id="move-right" type="button" aria-label="Move right">▶</button>
+    </div>
 </div>
 
 <div id="controls">
@@ -2613,6 +2675,23 @@ function checkCollision() {
    INITIAL 3-2-1-GO COUNTDOWN
    ============================================================ */
 
+function chooseStartingDirection() {
+    const [r, c] = state.player;
+    const preferred = [
+        [0, 1],   // right
+        [-1, 0],  // up
+        [0, -1],  // left
+        [1, 0]    // down
+    ];
+
+    for (const dir of preferred) {
+        if (!isWall(r + dir[0], c + dir[1])) {
+            return dir;
+        }
+    }
+    return [0, 0];
+}
+
 function startOpeningCountdown() {
 
     if (timer) {
@@ -2652,6 +2731,17 @@ function startOpeningCountdown() {
             state.countdownValue = null;
             state.paused = false;
             state.lastEvent = "GO! 🐾";
+
+            // Start the dog immediately when 0 appears, even if the player
+            // has not pressed a direction yet. The player can override it at once.
+            const startDir = chooseStartingDirection();
+            state.nextDir = [...startDir];
+            state.playerDir = [...startDir];
+            movePlayer();
+            if (!state.gameOver && !state.awaitingGuess) {
+                moveDino();
+            }
+            render();
 
             timer = setInterval(gameLoop, SPEED);
             ROOT.focus();
@@ -2936,10 +3026,17 @@ function submitGuess() {
     const comparableCollected = collectedPlayable.toLocaleLowerCase();
 
     if (!sameCounts(comparableGuess, comparableCollected)) {
-        guessFeedback.textContent =
-            "🦖 RAWR! Sneaky characters? " +
-            `Use only the ${PLAYABLE_LETTERS.length} characters you actually found: ` +
-            state.collected.join(" ");
+        // A short guess means the player did not use every collected character.
+        // Punctuation counts too — including the ! in Happy Birthday!.
+        if (guessedPlayable.length < collectedPlayable.length) {
+            guessFeedback.textContent =
+                "🧰 You left some treasure behind! Use ALL the characters you found — punctuation counts too (yes, the !).";
+        } else {
+            guessFeedback.textContent =
+                "🦖 RAWR! Sneaky characters? " +
+                `Use only the ${PLAYABLE_LETTERS.length} characters you actually found: ` +
+                state.collected.join(" ");
+        }
 
         guessFeedback.style.color = "#fbbf24";
     } else {
@@ -4825,7 +4922,8 @@ function fitFullscreenGame() {
     const verticalPadding = parseFloat(mainStyle.paddingTop) + parseFloat(mainStyle.paddingBottom);
     const reserved = header.offsetHeight + controls.offsetHeight + help.offsetHeight + verticalPadding + 18;
     const availableHeight = Math.max(120, window.innerHeight - reserved);
-    const availableWidth = Math.max(120, window.innerWidth - 20);
+    const touchReserve = HAS_TOUCH_UI ? 130 : 0;
+    const availableWidth = Math.max(120, window.innerWidth - 20 - touchReserve);
 
     const scale = Math.min(availableWidth / canvas.width, availableHeight / canvas.height);
     canvas.style.width = `${Math.floor(canvas.width * scale)}px`;
